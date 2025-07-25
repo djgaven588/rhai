@@ -10,6 +10,7 @@ use crate::{
     calc_fn_hash, expose_under_internals, Dynamic, Engine, EvalContext, FnArgsVec, FuncArgs,
     Position, RhaiResult, RhaiResultOf, StaticVec, VarDefInfo, ERR,
 };
+use core::any::type_name;
 #[cfg(feature = "no_std")]
 use std::prelude::v1::*;
 
@@ -301,13 +302,11 @@ impl<'a> NativeCallContext<'a> {
         let args = &mut arg_values.iter_mut().collect::<FnArgsVec<_>>();
 
         self._call_fn_raw(fn_name, args, false, false, false)
-            .and_then(|result| {
-                let type_name = result.type_name();
-                if let Some(val) = result.try_cast() {
-                    Ok(val)
-                } else {
-                    let result_type = self.engine().map_type_name(type_name);
-                    let cast_type = match type_name {
+            .and_then(|result| match result.try_cast_result() {
+                Ok(val) => Ok(val),
+                Err(err) => {
+                    let result_type = self.engine().map_type_name(err.type_name());
+                    let cast_type = match type_name::<T>() {
                         typ if typ.contains("::") => self.engine.map_type_name(typ),
                         typ => typ,
                     };
@@ -337,13 +336,11 @@ impl<'a> NativeCallContext<'a> {
         let args = &mut arg_values.iter_mut().collect::<FnArgsVec<_>>();
 
         self._call_fn_raw(fn_name, args, true, false, false)
-            .and_then(|result| {
-                let type_name = result.type_name();
-                if let Some(val) = result.try_cast() {
-                    Ok(val)
-                } else {
-                    let result_type = self.engine().map_type_name(type_name);
-                    let cast_type = match type_name {
+            .and_then(|result| match result.try_cast_result() {
+                Ok(val) => Ok(val),
+                Err(err) => {
+                    let result_type = self.engine().map_type_name(err.type_name());
+                    let cast_type = match type_name::<T>() {
                         typ if typ.contains("::") => self.engine.map_type_name(typ),
                         typ => typ,
                     };
