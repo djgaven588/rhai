@@ -1374,37 +1374,38 @@ impl Dynamic {
         // Coded this way in order to maximally leverage potentials for dead-code removal.
 
         reify! { value => |v: Self| return v }
-        reify! { value => |v: INT| return v.into() }
+        reify! { value => |v: INT| return Dynamic::from_int(v) }
 
         #[cfg(not(feature = "no_float"))]
-        reify! { value => |v: crate::FLOAT| return v.into() }
+        reify! { value => |v: crate::FLOAT| return Dynamic::from_float(v) }
 
         #[cfg(feature = "decimal")]
-        reify! { value => |v: rust_decimal::Decimal| return v.into() }
+        reify! { value => |v: rust_decimal::Decimal| return Dynamic::from_decimal(v) }
 
-        reify! { value => |v: bool| return v.into() }
+        reify! { value => |v: bool| return Dynamic::from_bool(v) }
         reify! { value => |v: char| return v.into() }
         reify! { value => |v: ImmutableString| return v.into() }
-        reify! { value => |v: String| return v.into() }
-        reify! { value => |v: &str| return v.into() }
-        reify! { value => |v: ()| return v.into() }
+        reify! { value => |v: String| return Dynamic::from_str(&v).unwrap() }
+        reify! { value => |v: &str| return Dynamic::from_str(v).unwrap() }
+        reify! { value => |_v: ()| return Dynamic::UNIT }
 
         #[cfg(not(feature = "no_index"))]
-        reify! { value => |v: Array| return v.into() }
+        reify! { value => |v: Array| return Dynamic::from_array(v) }
         #[cfg(not(feature = "no_index"))]
         // don't use blob.into() because it'll be converted into an Array
         reify! { value => |v: Blob| return Self::from_blob(v) }
         #[cfg(not(feature = "no_object"))]
-        reify! { value => |v: Map| return v.into() }
+        reify! { value => |v: Map| return Dynamic::from_map(v) }
         reify! { value => |v: FnPtr| return v.into() }
 
         #[cfg(not(feature = "no_time"))]
-        reify! { value => |v: Instant| return v.into() }
+        reify! { value => |v: Instant| return Dynamic::from_timestamp(v) }
         #[cfg(not(feature = "no_closure"))]
         reify! { value => |v: crate::Shared<crate::Locked<Self>>| return v.into() }
 
         Self(Union::Variant(Box::new(Box::new(value)), 0, ReadWrite))
     }
+
     /// Turn the [`Dynamic`] value into a shared [`Dynamic`] value backed by an
     /// [`Rc<RefCell<Dynamic>>`][std::rc::Rc] or [`Arc<RwLock<Dynamic>>`][std::sync::Arc]
     /// depending on the `sync` feature.
@@ -1437,6 +1438,7 @@ impl Dynamic {
     pub fn take(&mut self) -> Self {
         mem::take(self)
     }
+
     /// Convert the [`Dynamic`] value into specific type.
     ///
     /// Casting to a [`Dynamic`] simply returns itself.
@@ -1705,6 +1707,7 @@ impl Dynamic {
             _ => self.clone(),
         }
     }
+
     /// Flatten the [`Dynamic`].
     ///
     /// If the [`Dynamic`] is not a _shared_ value, it simply returns itself.

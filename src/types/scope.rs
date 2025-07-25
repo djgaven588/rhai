@@ -473,11 +473,15 @@ impl Scope<'_> {
     #[inline]
     #[must_use]
     pub(crate) fn search(&self, name: &str) -> Option<usize> {
-        self.names
-            .iter()
-            .rev() // Always search a Scope in reverse order
-            .position(|key| name == key)
-            .map(|i| self.len() - 1 - i)
+        let name_len = self.names.len();
+        for i in 0..name_len {
+            let i = name_len - i - 1;
+            if self.names[i].eq(name) {
+                return Some(self.len() - 1 - i);
+            }
+        }
+
+        None
     }
     /// Get the value of an entry in the [`Scope`], starting from the last.
     ///
@@ -494,11 +498,15 @@ impl Scope<'_> {
     #[inline]
     #[must_use]
     pub fn get_value<T: Variant + Clone>(&self, name: &str) -> Option<T> {
-        self.names
-            .iter()
-            .rev()
-            .position(|key| name == key)
-            .and_then(|i| self.values[self.len() - 1 - i].flatten_clone().try_cast())
+        let name_len = self.names.len();
+        for i in 0..name_len {
+            let i = name_len - i - 1;
+            if self.names[i].eq(name) {
+                return self.values[self.len() - 1 - i].flatten_clone().try_cast();
+            }
+        }
+
+        None
     }
     /// Get a reference the value of an entry in the [`Scope`], starting from the last.
     ///
@@ -522,16 +530,18 @@ impl Scope<'_> {
     #[inline]
     #[must_use]
     pub fn get_value_ref<T: Variant + Clone>(&self, name: &str) -> Option<&T> {
-        self.names
-            .iter()
-            .rev()
-            .position(|key| name == key)
-            .and_then(|i| {
+        let name_len = self.names.len();
+        for i in 0..name_len {
+            let i = name_len - i - 1;
+            if self.names[i].eq(name) {
                 let v = &self.values[self.len() - 1 - i];
                 #[cfg(not(feature = "no_closure"))]
                 assert!(!v.is_shared());
-                v.downcast_ref()
-            })
+                return v.downcast_ref();
+            }
+        }
+
+        None
     }
     /// Get a mutable reference the value of an entry in the [`Scope`], starting from the last.
     ///
@@ -557,18 +567,19 @@ impl Scope<'_> {
     #[inline]
     #[must_use]
     pub fn get_value_mut<T: Variant + Clone>(&mut self, name: &str) -> Option<&mut T> {
+        let name_len = self.names.len();
         let len = self.len();
-
-        self.names
-            .iter_mut()
-            .rev()
-            .position(|key| name == key)
-            .and_then(move |i| {
+        for i in 0..name_len {
+            let i = name_len - i - 1;
+            if self.names[i].eq(name) {
                 let v = &mut self.values[len - 1 - i];
                 #[cfg(not(feature = "no_closure"))]
                 assert!(!v.is_shared());
-                v.downcast_mut()
-            })
+                return v.downcast_mut();
+            }
+        }
+
+        None
     }
     /// Check if the named entry in the [`Scope`] is constant.
     ///

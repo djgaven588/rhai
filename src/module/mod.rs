@@ -1199,7 +1199,8 @@ impl Module {
     #[inline]
     #[must_use]
     pub fn get_var_value<T: Variant + Clone>(&self, name: &str) -> Option<T> {
-        self.get_var(name).and_then(Dynamic::try_cast::<T>)
+        self.get_var(name)
+            .and_then(|arg0: &Dynamic| Dynamic::try_cast::<T>(arg0.clone()))
     }
 
     /// Get a [`Module`] variable as a [`Dynamic`].
@@ -1214,8 +1215,8 @@ impl Module {
     /// ```
     #[inline(always)]
     #[must_use]
-    pub fn get_var(&self, name: &str) -> Option<Dynamic> {
-        self.variables.get(name).cloned()
+    pub fn get_var(&self, name: &str) -> Option<&Dynamic> {
+        self.variables.get(name)
     }
 
     /// Set a variable into the [`Module`].

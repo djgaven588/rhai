@@ -68,33 +68,32 @@ impl Engine {
 
                 // Scripted function with the same name
                 #[cfg(not(feature = "no_function"))]
-                if let Some(func) = global
-                    .lib
-                    .iter()
-                    .flat_map(|m| m.iter_fn())
-                    .filter(|(f, _)| f.is_script())
-                    .filter(|(_, m)| m.name == v.1.as_str())
-                    .map(|(f, _)| f)
-                    .next()
                 {
-                    // Embedded environment for scripted function
-                    let env = if let Some(env) = func.get_shared_encapsulated_environ() {
-                        env.clone()
-                    } else {
-                        // Create a new environment with the current module
-                        crate::Shared::new((&*global).into())
-                    };
+                    for m in &global.lib {
+                        for f in m.iter_fn() {
+                            if f.0.is_script() && v.1.eq(&f.1.name) {
+                                // Embedded environment for scripted function
+                                let env = if let Some(env) = f.0.get_shared_encapsulated_environ() {
+                                    env.clone()
+                                } else {
+                                    // Create a new environment with the current module
+                                    crate::Shared::new((&*global).into())
+                                };
 
-                    let val: Dynamic = crate::FnPtr {
-                        name: v.1.clone(),
-                        curry: <_>::default(),
-                        env: Some(env),
-                        typ: crate::types::fn_ptr::FnPtrType::Script(
-                            func.get_script_fn_def().cloned().unwrap(),
-                        ),
+                                let val: Dynamic = crate::FnPtr {
+                                    name: v.1.clone(),
+                                    curry: <_>::default(),
+                                    env: Some(env),
+                                    typ: crate::types::fn_ptr::FnPtrType::Script(
+                                        f.0.get_script_fn_def().cloned().unwrap(),
+                                    ),
+                                }
+                                .into();
+
+                                return Ok(val.into());
+                            }
+                        }
                     }
-                    .into();
-                    return Ok(val.into());
                 }
 
                 v.0.map_or(0, NonZeroUsize::get)
@@ -135,20 +134,15 @@ impl Engine {
             match scope.search(var_name) {
                 Some(index) => index,
                 None => {
-                    return self
-                        .global_modules
-                        .iter()
-                        .find_map(|m| m.get_var(var_name))
-                        .map_or_else(
-                            || {
-                                Err(ERR::ErrorVariableNotFound(
-                                    var_name.to_string(),
-                                    expr.position(),
-                                )
-                                .into())
-                            },
-                            |val| Ok(val.into()),
-                        )
+                    for m in &self.global_modules {
+                        if let Some(val) = m.get_var(var_name) {
+                            return Ok((val.clone()).into());
+                        }
+                    }
+
+                    return Err(
+                        ERR::ErrorVariableNotFound(var_name.to_string(), expr.position()).into(),
+                    );
                 }
             }
         };

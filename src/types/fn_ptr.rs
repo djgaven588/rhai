@@ -259,15 +259,18 @@ impl FnPtr {
         let ctx = (engine, self.fn_name(), None, &*global, Position::NONE).into();
 
         self.call_raw(&ctx, None, arg_values).and_then(|result| {
-            result.try_cast_result().map_err(|r| {
-                let result_type = engine.map_type_name(r.type_name());
-                let cast_type = match type_name::<T>() {
+            let type_name = result.type_name();
+            if let Some(val) = result.try_cast() {
+                Ok(val)
+            } else {
+                let result_type = engine.map_type_name(type_name);
+                let cast_type = match type_name {
                     typ if typ.contains("::") => engine.map_type_name(typ),
                     typ => typ,
                 };
                 ERR::ErrorMismatchOutputType(cast_type.into(), result_type.into(), Position::NONE)
                     .into()
-            })
+            }
         })
     }
     /// Call the function pointer with curried arguments (if any).
@@ -286,15 +289,18 @@ impl FnPtr {
         args.parse(&mut arg_values);
 
         self.call_raw(context, None, arg_values).and_then(|result| {
-            result.try_cast_result().map_err(|r| {
-                let result_type = context.engine().map_type_name(r.type_name());
-                let cast_type = match type_name::<T>() {
+            let type_name = result.type_name();
+            if let Some(val) = result.try_cast() {
+                Ok(val)
+            } else {
+                let result_type = context.engine().map_type_name(type_name);
+                let cast_type = match type_name {
                     typ if typ.contains("::") => context.engine().map_type_name(typ),
                     typ => typ,
                 };
                 ERR::ErrorMismatchOutputType(cast_type.into(), result_type.into(), Position::NONE)
                     .into()
-            })
+            }
         })
     }
     /// Call the function pointer with curried arguments (if any).

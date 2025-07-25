@@ -2,7 +2,7 @@
 
 #![allow(non_snake_case)]
 
-use crate::types::dynamic::{AccessMode, Union, Variant};
+use crate::types::dynamic::Variant;
 use crate::Dynamic;
 #[cfg(feature = "no_std")]
 use std::prelude::v1::*;

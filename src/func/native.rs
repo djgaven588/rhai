@@ -10,7 +10,6 @@ use crate::{
     calc_fn_hash, expose_under_internals, Dynamic, Engine, EvalContext, FnArgsVec, FuncArgs,
     Position, RhaiResult, RhaiResultOf, StaticVec, VarDefInfo, ERR,
 };
-use std::any::type_name;
 #[cfg(feature = "no_std")]
 use std::prelude::v1::*;
 
@@ -303,9 +302,12 @@ impl<'a> NativeCallContext<'a> {
 
         self._call_fn_raw(fn_name, args, false, false, false)
             .and_then(|result| {
-                result.try_cast_result().map_err(|r| {
-                    let result_type = self.engine().map_type_name(r.type_name());
-                    let cast_type = match type_name::<T>() {
+                let type_name = result.type_name();
+                if let Some(val) = result.try_cast() {
+                    Ok(val)
+                } else {
+                    let result_type = self.engine().map_type_name(type_name);
+                    let cast_type = match type_name {
                         typ if typ.contains("::") => self.engine.map_type_name(typ),
                         typ => typ,
                     };
@@ -315,7 +317,7 @@ impl<'a> NativeCallContext<'a> {
                         self.call_position(),
                     )
                     .into()
-                })
+                }
             })
     }
     /// Call a registered native Rust function inside the call context with the provided arguments.
@@ -336,9 +338,12 @@ impl<'a> NativeCallContext<'a> {
 
         self._call_fn_raw(fn_name, args, true, false, false)
             .and_then(|result| {
-                result.try_cast_result().map_err(|r| {
-                    let result_type = self.engine().map_type_name(r.type_name());
-                    let cast_type = match type_name::<T>() {
+                let type_name = result.type_name();
+                if let Some(val) = result.try_cast() {
+                    Ok(val)
+                } else {
+                    let result_type = self.engine().map_type_name(type_name);
+                    let cast_type = match type_name {
                         typ if typ.contains("::") => self.engine.map_type_name(typ),
                         typ => typ,
                     };
@@ -348,7 +353,7 @@ impl<'a> NativeCallContext<'a> {
                         self.call_position(),
                     )
                     .into()
-                })
+                }
             })
     }
     /// Call a function (native Rust or scripted) inside the call context.
