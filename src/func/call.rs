@@ -741,7 +741,8 @@ impl Engine {
         let (result, updated) = match fn_name {
             // Handle fn_ptr.call(...)
             KEYWORD_FN_PTR_CALL if target.as_ref().is_fnptr() => {
-                let fn_ptr = target.as_ref().read_lock::<FnPtr>().unwrap();
+                let target = target.as_ref();
+                let fn_ptr = target.read_lock::<FnPtr>().unwrap();
                 let mut curry = fn_ptr.curry().iter().cloned().collect::<FnArgsVec<_>>();
 
                 // Arguments are passed as-is, adding the curried arguments
@@ -754,17 +755,19 @@ impl Engine {
                     // Linked to scripted function - short-circuit
                     #[cfg(not(feature = "no_function"))]
                     FnPtrType::Script(ref fn_def) if fn_def.params.len() == args.len() => {
-                        let fn_ptr = target.as_ref().read_lock::<FnPtr>().unwrap();
+                        let fn_ptr = target.read_lock::<FnPtr>().unwrap();
 
                         let scope = &mut Scope::new();
-                        let env = fn_ptr.env.as_ref().map(<_>::as_ref);
+                        let env = fn_ptr.env.as_ref().map(|val| val.as_ref());
 
                         defer! { let orig_level = global.level; global.level += 1 }
 
-                        self.call_script_fn(
+                        match self.call_script_fn(
                             global, caches, scope, None, env, fn_def, &mut args, true, pos,
-                        )
-                        .map(|v| (v, false))
+                        ) {
+                            Ok(val) => Ok((val, false)),
+                            Err(err) => Err(err),
+                        }
                     }
                     // Native function - short-circuit
                     FnPtrType::Native(ref func) => {
@@ -772,10 +775,13 @@ impl Engine {
 
                         let context = (self, fn_name, None, &*global, pos).into();
 
-                        func(context, &mut args)
-                            .and_then(|r| self.check_data_size(r, pos))
-                            .map(|v| (v, false))
-                            .map_err(|err| err.fill_position(pos))
+                        match func(context, &mut args) {
+                            Ok(r) => match self.check_data_size(r, pos) {
+                                Ok(val) => Ok((val, false)),
+                                Err(err) => Err(err.fill_position(pos)),
+                            },
+                            Err(err) => Err(err.fill_position(pos)),
+                        }
                     }
                     // Normal call
                     _ => {
@@ -811,15 +817,15 @@ impl Engine {
                 }
 
                 // FnPtr call on object
-                let fn_ptr = call_args[0]
-                    .take()
-                    .try_cast_result::<FnPtr>()
-                    .map_err(|v| {
-                        self.make_type_mismatch_err::<FnPtr>(
-                            self.map_type_name(v.type_name()),
+                let fn_ptr = match call_args[0].take().try_cast_result::<FnPtr>() {
+                    Ok(val) => val,
+                    Err(err) => {
+                        return Err(self.make_type_mismatch_err::<FnPtr>(
+                            self.map_type_name(err.type_name()),
                             first_arg_pos,
-                        )
-                    })?;
+                        ));
+                    }
+                };
 
                 let _is_anon = false;
                 #[cfg(not(feature = "no_function"))]
@@ -853,10 +859,12 @@ impl Engine {
 
                         defer! { let orig_level = global.level; global.level += 1 }
 
-                        self.call_script_fn(
+                        match self.call_script_fn(
                             global, caches, scope, this_ptr, env, &fn_def, args, true, pos,
-                        )
-                        .map(|v| (v, false))
+                        ) {
+                            Ok(val) => Ok((val, false)),
+                            Err(err) => Err(err),
+                        }
                     }
                     // Native function - short-circuit
                     FnPtrType::Native(ref func) => {
@@ -867,10 +875,13 @@ impl Engine {
                         // Add the first argument with the object pointer
                         args.insert(0, target.as_mut());
 
-                        func(context, args)
-                            .and_then(|r| self.check_data_size(r, pos))
-                            .map(|v| (v, false))
-                            .map_err(|err| err.fill_position(pos))
+                        match func(context, args) {
+                            Ok(val) => match self.check_data_size(val, pos) {
+                                Ok(val) => Ok((val, false)),
+                                Err(err) => Err(err.fill_position(pos)),
+                            },
+                            Err(err) => Err(err.fill_position(pos)),
+                        }
                     }
                     // Normal call
                     _ => {
@@ -910,13 +921,14 @@ impl Engine {
             // Handle fn_ptr.curry(...)
             KEYWORD_FN_PTR_CURRY => {
                 let typ = target.as_ref().type_name();
-                let mut fn_ptr = target
-                    .as_ref()
-                    .read_lock::<FnPtr>()
-                    .ok_or_else(|| {
-                        self.make_type_mismatch_err::<FnPtr>(self.map_type_name(typ), pos)
-                    })?
-                    .clone();
+                let mut fn_ptr = match target.as_ref().read_lock::<FnPtr>() {
+                    Some(val) => val.clone(),
+                    None => {
+                        return Err(
+                            self.make_type_mismatch_err::<FnPtr>(self.map_type_name(typ), pos)
+                        );
+                    }
+                };
 
                 // Append the new curried arguments to the existing list.
                 fn_ptr.extend(call_args.iter_mut().map(mem::take));
@@ -1021,10 +1033,12 @@ impl Engine {
 
                         defer! { let orig_level = global.level; global.level += 1 }
 
-                        self.call_script_fn(
+                        match self.call_script_fn(
                             global, caches, scope, this_ptr, env, &fn_def, args, true, pos,
-                        )
-                        .map(|v| (v, false))
+                        ) {
+                            Ok(val) => Ok((val, false)),
+                            Err(err) => Err(err),
+                        }
                     }
                     // Native function - short-circuit
                     Some((None, Some(func), ..)) => {
@@ -1037,10 +1051,13 @@ impl Engine {
 
                         let context = (self, fn_name, None, &*global, pos).into();
 
-                        func(context, args)
-                            .and_then(|r| self.check_data_size(r, pos))
-                            .map(|v| (v, false))
-                            .map_err(|err| err.fill_position(pos))
+                        match func(context, args) {
+                            Ok(val) => match self.check_data_size(val, pos) {
+                                Ok(val) => Ok((val, false)),
+                                Err(err) => Err(err.fill_position(pos)),
+                            },
+                            Err(err) => Err(err.fill_position(pos)),
+                        }
                     }
                     // Normal call
                     None => {

@@ -164,10 +164,10 @@ impl Engine {
 
         let sizes = calc_data_sizes(value.borrow(), true);
 
-        self.throw_on_size(sizes)
-            .map_err(|err| err.fill_position(pos))?;
-
-        Ok(value)
+        match self.throw_on_size(sizes) {
+            Ok(_) => Ok(value),
+            Err(err) => Err(err.fill_position(pos)),
+        }
     }
 
     /// Raise an error if the size of a [`Dynamic`] is out of limits (if any).

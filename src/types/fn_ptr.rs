@@ -258,20 +258,23 @@ impl FnPtr {
 
         let ctx = (engine, self.fn_name(), None, &*global, Position::NONE).into();
 
-        self.call_raw(&ctx, None, arg_values).and_then(|result| {
-            let type_name = result.type_name();
-            if let Some(val) = result.try_cast() {
-                Ok(val)
-            } else {
-                let result_type = engine.map_type_name(type_name);
-                let cast_type = match type_name {
-                    typ if typ.contains("::") => engine.map_type_name(typ),
-                    typ => typ,
-                };
-                ERR::ErrorMismatchOutputType(cast_type.into(), result_type.into(), Position::NONE)
+        self.call_raw(&ctx, None, arg_values)
+            .and_then(|result| match result.try_cast_result() {
+                Ok(val) => Ok(val),
+                Err(val) => {
+                    let result_type = engine.map_type_name(val.type_name());
+                    let cast_type = match type_name::<T>() {
+                        typ if typ.contains("::") => engine.map_type_name(typ),
+                        typ => typ,
+                    };
+                    ERR::ErrorMismatchOutputType(
+                        cast_type.into(),
+                        result_type.into(),
+                        Position::NONE,
+                    )
                     .into()
-            }
-        })
+                }
+            })
     }
     /// Call the function pointer with curried arguments (if any).
     /// The function may be script-defined (not available under `no_function`) or native Rust.
@@ -288,20 +291,23 @@ impl FnPtr {
         let mut arg_values = StaticVec::new_const();
         args.parse(&mut arg_values);
 
-        self.call_raw(context, None, arg_values).and_then(|result| {
-            let type_name = result.type_name();
-            if let Some(val) = result.try_cast() {
-                Ok(val)
-            } else {
-                let result_type = context.engine().map_type_name(type_name);
-                let cast_type = match type_name {
-                    typ if typ.contains("::") => context.engine().map_type_name(typ),
-                    typ => typ,
-                };
-                ERR::ErrorMismatchOutputType(cast_type.into(), result_type.into(), Position::NONE)
+        self.call_raw(context, None, arg_values)
+            .and_then(|result| match result.try_cast_result() {
+                Ok(val) => Ok(val),
+                Err(val) => {
+                    let result_type = context.engine().map_type_name(val.type_name());
+                    let cast_type = match type_name::<T>() {
+                        typ if typ.contains("::") => context.engine().map_type_name(typ),
+                        typ => typ,
+                    };
+                    ERR::ErrorMismatchOutputType(
+                        cast_type.into(),
+                        result_type.into(),
+                        Position::NONE,
+                    )
                     .into()
-            }
-        })
+                }
+            })
     }
     /// Call the function pointer with curried arguments (if any).
     /// The function may be script-defined (not available under `no_function`) or native Rust.

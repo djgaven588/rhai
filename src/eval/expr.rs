@@ -262,18 +262,22 @@ impl Engine {
                 self.eval_fn_call_expr(global, caches, scope, this_ptr, x, *pos)
             }
 
-            Expr::ThisPtr(var_pos) => this_ptr
-                .ok_or_else(|| ERR::ErrorUnboundThis(*var_pos).into())
-                .cloned(),
+            Expr::ThisPtr(var_pos) => match this_ptr {
+                Some(val) => Ok(val.clone()),
+                None => ERR::ErrorUnboundThis(*var_pos).into(),
+            },
 
-            Expr::Variable(..) => self
-                .search_namespace(global, caches, scope, this_ptr, expr)
-                .map(Target::take_or_clone),
+            Expr::Variable(..) => {
+                match self.search_namespace(global, caches, scope, this_ptr, expr) {
+                    Ok(val) => Ok(val.take_or_clone()),
+                    Err(err) => Err(err),
+                }
+            }
 
             Expr::InterpolatedString(x, _) => {
                 let mut concat = SmartString::new_const();
 
-                for expr in &**x {
+                for expr in x {
                     let item = &mut self
                         .eval_expr(global, caches, scope, this_ptr.as_deref_mut(), expr)?
                         .flatten();
