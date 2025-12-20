@@ -764,7 +764,7 @@ impl Module {
     /// ```
     #[inline(always)]
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             id: None,
             #[cfg(feature = "metadata")]

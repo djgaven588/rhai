@@ -3,7 +3,7 @@
 use crate::Identifier;
 #[cfg(feature = "no_std")]
 use std::prelude::v1::*;
-use std::{any::type_name, collections::BTreeMap};
+use std::{any::type_name, collections::HashMap};
 
 /// _(internals)_ Information for a registered custom type.
 /// Exported under the `internals` feature only.
@@ -31,8 +31,8 @@ pub struct CustomTypeInfo {
 
 /// _(internals)_ A collection of custom types.
 /// Exported under the `internals` feature only.
-#[derive(Debug, Clone, Hash)]
-pub struct CustomTypesCollection(BTreeMap<Identifier, Box<CustomTypeInfo>>);
+#[derive(Debug, Clone)]
+pub struct CustomTypesCollection(HashMap<Identifier, Box<CustomTypeInfo>>);
 
 impl Default for CustomTypesCollection {
     #[inline(always)]
@@ -44,8 +44,8 @@ impl Default for CustomTypesCollection {
 impl CustomTypesCollection {
     /// Create a new [`CustomTypesCollection`].
     #[inline(always)]
-    pub const fn new() -> Self {
-        Self(BTreeMap::new())
+    pub fn new() -> Self {
+        Self(HashMap::new())
     }
     /// Clear the [`CustomTypesCollection`].
     #[inline(always)]
