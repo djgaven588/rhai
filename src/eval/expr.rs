@@ -68,33 +68,33 @@ impl Engine {
 
                 // Scripted function with the same name
                 #[cfg(not(feature = "no_function"))]
-                if let Some(func) = global
-                    .lib
-                    .iter()
-                    .flat_map(|m| m.iter_fn())
-                    .filter(|(f, _)| f.is_script())
-                    .filter(|(_, m)| m.name == v.1.as_str())
-                    .map(|(f, _)| f)
-                    .next()
                 {
-                    // Embedded environment for scripted function
-                    let env = if let Some(env) = func.get_shared_encapsulated_environ() {
-                        env.clone()
-                    } else {
-                        // Create a new environment with the current module
-                        crate::Shared::new((&*global).into())
-                    };
+                    for m in &global.lib {
+                        for f in m.iter_fn() {
+                            let func = f.0;
+                            if func.is_script() && f.1.name == v.1.as_str() {
+                                // Embedded environment for scripted function
+                                let env = if let Some(env) = func.get_shared_encapsulated_environ()
+                                {
+                                    env.clone()
+                                } else {
+                                    // Create a new environment with the current module
+                                    crate::Shared::new((&*global).into())
+                                };
 
-                    let val: Dynamic = crate::FnPtr {
-                        name: v.1.clone(),
-                        curry: <_>::default(),
-                        env: Some(env),
-                        typ: crate::types::fn_ptr::FnPtrType::Script(
-                            func.get_script_fn_def().cloned().unwrap(),
-                        ),
+                                let val: Dynamic = crate::FnPtr {
+                                    name: v.1.clone(),
+                                    curry: <_>::default(),
+                                    env: Some(env),
+                                    typ: crate::types::fn_ptr::FnPtrType::Script(
+                                        func.get_script_fn_def().cloned().unwrap(),
+                                    ),
+                                }
+                                .into();
+                                return Ok(val.into());
+                            }
+                        }
                     }
-                    .into();
-                    return Ok(val.into());
                 }
 
                 v.0.map_or(0, NonZeroUsize::get)
@@ -135,20 +135,17 @@ impl Engine {
             match scope.search(var_name) {
                 Some(index) => index,
                 None => {
-                    return self
-                        .global_modules
-                        .iter()
-                        .find_map(|m| m.get_var(var_name))
-                        .map_or_else(
-                            || {
-                                Err(ERR::ErrorVariableNotFound(
-                                    var_name.to_string(),
-                                    expr.position(),
-                                )
-                                .into())
-                            },
-                            |val| Ok(val.into()),
-                        )
+                    for m in &self.global_modules {
+                        let Some(val) = m.get_var(var_name) else {
+                            continue;
+                        };
+
+                        return Ok(val.into());
+                    }
+
+                    return Err(
+                        ERR::ErrorVariableNotFound(var_name.to_string(), expr.position()).into(),
+                    );
                 }
             }
         };
@@ -272,10 +269,12 @@ impl Engine {
                 .ok_or_else(|| ERR::ErrorUnboundThis(*var_pos).into())
                 .cloned(),
 
-            Expr::Variable(..) => self
-                .search_namespace(global, caches, scope, this_ptr, expr)
-                .map(Target::take_or_clone),
-
+            Expr::Variable(..) => {
+                match self.search_namespace(global, caches, scope, this_ptr, expr) {
+                    Ok(val) => Ok(Target::take_or_clone(val)),
+                    Err(err) => Err(err),
+                }
+            }
             Expr::InterpolatedString(x, _) => {
                 let mut concat = SmartString::new_const();
 

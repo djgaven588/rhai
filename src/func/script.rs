@@ -70,10 +70,15 @@ impl Engine {
         }
 
         // Put arguments into scope as variables
-        scope.extend(fn_def.params.iter().cloned().zip(args.iter_mut().map(|v| {
-            // Actually consume the arguments instead of cloning them
-            v.take()
-        })));
+        unsafe {
+            for arg in 0..fn_def.params.len().min(args.len()) {
+                scope.push_entry(
+                    fn_def.params.get_unchecked(arg).clone(),
+                    crate::types::dynamic::AccessMode::ReadWrite,
+                    args.get_unchecked_mut(arg).take(),
+                );
+            }
+        }
 
         // Push a new call stack frame
         #[cfg(feature = "debugging")]

@@ -66,14 +66,14 @@ impl Engine {
         }
 
         // Run the statements
-        statements.iter().try_fold(Dynamic::UNIT, |_, stmt| {
+        let mut result = Dynamic::UNIT;
+        for stmt in statements {
             let this_ptr = this_ptr.as_deref_mut();
 
             #[cfg(not(feature = "no_module"))]
             let orig_imports_len = global.num_imports();
 
-            let result =
-                self.eval_stmt(global, caches, scope, this_ptr, stmt, restore_orig_state)?;
+            result = self.eval_stmt(global, caches, scope, this_ptr, stmt, restore_orig_state)?;
 
             #[cfg(not(feature = "no_module"))]
             if matches!(stmt, Stmt::Import(..)) {
@@ -99,9 +99,9 @@ impl Engine {
                     }
                 }
             }
+        }
 
-            Ok(result)
-        })
+        Ok(result)
     }
 
     /// Evaluate an op-assignment statement.

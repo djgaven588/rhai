@@ -939,14 +939,14 @@ impl Scope<'_> {
     #[inline]
     #[allow(dead_code)]
     pub(crate) fn remove_range(&mut self, start: usize, len: usize) {
-        self.values.drain(start..start + len).for_each(|_| {});
-        self.names.drain(start..start + len).for_each(|_| {});
+        self.values.drain(start..start + len);
+        self.names.drain(start..start + len);
 
         if self.aliases.len() > start {
             if self.aliases.len() <= start + len {
                 self.aliases.truncate(start);
             } else {
-                self.aliases.drain(start..start + len).for_each(|_| {});
+                self.aliases.drain(start..start + len);
             }
         }
     }

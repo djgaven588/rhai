@@ -185,7 +185,7 @@ impl Engine {
         let mut arg_values = FnArgsVec::new_const();
         args.parse(&mut arg_values);
 
-        self._call_fn(
+        let result = self._call_fn(
             options,
             scope,
             ast,
@@ -193,17 +193,16 @@ impl Engine {
             arg_values.as_mut(),
             &mut self.new_global_runtime_state(),
             &mut Caches::new(),
-        )
-        .and_then(|result| {
-            result.try_cast_result().map_err(|r| {
-                let result_type = self.map_type_name(r.type_name());
-                let cast_type = match type_name::<T>() {
-                    typ if typ.contains("::") => self.map_type_name(typ),
-                    typ => typ,
-                };
-                ERR::ErrorMismatchOutputType(cast_type.into(), result_type.into(), Position::NONE)
-                    .into()
-            })
+        )?;
+
+        result.try_cast_result().map_err(|r| {
+            let result_type = self.map_type_name(r.type_name());
+            let cast_type = match type_name::<T>() {
+                typ if typ.contains("::") => self.map_type_name(typ),
+                typ => typ,
+            };
+            ERR::ErrorMismatchOutputType(cast_type.into(), result_type.into(), Position::NONE)
+                .into()
         })
     }
     /// Make a function call with multiple [`Dynamic`] arguments.
