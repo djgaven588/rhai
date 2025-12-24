@@ -230,18 +230,19 @@ impl GlobalRuntimeState {
         hash: u64,
         global_namespace_only: bool,
     ) -> Option<(&crate::func::RhaiFunc, Option<&ImmutableString>)> {
-        if global_namespace_only {
-            self.modules
-                .iter()
-                .rev()
-                .filter(|&m| m.contains_indexed_global_functions())
-                .find_map(|m| m.get_qualified_fn(hash).map(|f| (f, m.id_raw())))
-        } else {
-            self.modules
-                .iter()
-                .rev()
-                .find_map(|m| m.get_qualified_fn(hash).map(|f| (f, m.id_raw())))
+        for i in 0..self.modules.len() {
+            let i = self.modules.len() - i - 1;
+            let m = &self.modules[i];
+            if !global_namespace_only
+                || global_namespace_only && m.contains_indexed_global_functions()
+            {
+                if let Some(f) = m.get_qualified_fn(hash) {
+                    return Some((f, m.id_raw()));
+                }
+            }
         }
+
+        None
     }
     /// Does the specified [`TypeId`][std::any::TypeId] iterator exist in the stack of
     /// globally-imported [modules][crate::Module]?
