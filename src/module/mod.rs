@@ -2250,6 +2250,22 @@ impl Module {
         self.iter_script_fn()
     }
 
+    /// _(internals)_ Get an iterator over all defined functions in the [`Module`].
+    /// Exported under the `internals` feature only.
+    #[expose_under_internals]
+    #[cfg(not(feature = "no_function"))]
+    #[inline(always)]
+    fn iter_fn_info(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &RhaiFunc,
+            &FuncMetadata,
+        ),
+    > {
+        self.iter_fn()
+    }
+
     /// Create a new [`Module`] by evaluating an [`AST`][crate::AST].
     ///
     /// The entire [`AST`][crate::AST] is encapsulated into each function, allowing functions to
