@@ -1,5 +1,7 @@
 //! Collection of custom types.
 
+use fxhash::FxHashMap;
+
 use crate::Identifier;
 #[cfg(feature = "no_std")]
 use std::prelude::v1::*;
@@ -32,7 +34,7 @@ pub struct CustomTypeInfo {
 /// _(internals)_ A collection of custom types.
 /// Exported under the `internals` feature only.
 #[derive(Debug, Clone)]
-pub struct CustomTypesCollection(HashMap<Identifier, Box<CustomTypeInfo>>);
+pub struct CustomTypesCollection(FxHashMap<Identifier, Box<CustomTypeInfo>>);
 
 impl Default for CustomTypesCollection {
     #[inline(always)]
@@ -45,7 +47,7 @@ impl CustomTypesCollection {
     /// Create a new [`CustomTypesCollection`].
     #[inline(always)]
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self(FxHashMap::default())
     }
     /// Clear the [`CustomTypesCollection`].
     #[inline(always)]
